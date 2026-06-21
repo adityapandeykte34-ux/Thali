@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Thali — AI Food Scanner</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Manrope:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap');
+
+:root{
+  --bg:#1C1613;
+  --surface:#2A2118;
+  --surface-2:#352A1D;
+  --accent:#F2762E;
+  --accent-dim:#C95E22;
+  --protein:#C23B6B;
+  --carbs:#F0B429;
+  --fat:#5FA88F;
+  --label-cream:#F5EFE6;
+  --label-text:#211A14;
+  --text:#F5EFE6;
+  --text-dim:#A89A8C;
+  --line:rgba(245,239,230,.1);
+}
+
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  font-family:'Manrope',sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  min-height:100vh;
+  -webkit-tap-highlight-color:transparent;
+}
+button,input,select{font-family:inherit;}
+button:focus-visible, input:focus-visible, select:focus-visible{
+  outline:2px solid var(--accent); outline-offset:2px;
+}
+
+.phone-shell{max-width:480px; margin:0 auto; min-height:100vh; position:relative; padding-bottom:88px;}
+
+/* ---------- HEADER ---------- */
+.app-header{padding:22px 20px 14px;}
+.eyebrow{font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--accent); font-weight:700;}
+.brand{font-family:'Archivo Black',sans-serif; font-size:26px; margin:4px 0 0; letter-spacing:-.01em;}
+
+.view{padding:0 20px 20px; display:none;}
+.view.active{display:block;}
+
+/* ---------- SCAN VIEW ---------- */
+.scan-counter{
+  display:flex; align-items:center; justify-content:space-between;
+  background:var(--surface); border:1px solid var(--line); border-radius:12px;
+  padding:12px 14px; margin-bottom:16px; font-size:12.5px; color:var(--text-dim);
+}
+.scan-counter strong{color:var(--text); font-weight:700;}
+.dots{display:flex; gap:4px;}
+.dot{width:7px; height:7px; border-radius:50%; background:var(--line);}
+.dot.used{background:var(--accent);}
+
+.upload-zone{
+  border:1.5px dashed rgba(245,239,230,.25); border-radius:16px;
+  padding:46px 20px; text-align:center; cursor:pointer;
+}
+.upload-zone:hover{border-color:var(--accent);}
+.upload-zone .icon{margin-bottom:10px; opacity:.8;}
+.upload-zone .u-main{font-weight:700; font-size:14.5px;}
+.upload-zone .u-sub{font-size:12px; color:var(--text-dim); margin-top:4px;}
+
+.photo-card{position:relative; border-radius:16px; overflow:hidden; margin-bottom:16px; background:var(--surface);}
+.photo-card img{width:100%; display:block; max-height:280px; object-fit:cover;}
+.scan-overlay{position:absolute; inset:0; overflow:hidden;}
+.scan-grid{
+  position:absolute; inset:0; opacity:.35;
+  background-image:linear-gradient(rgba(242,118,46,.5) 1px, transparent 1px), linear-gradient(90deg, rgba(242,118,46,.5) 1px, transparent 1px);
+  background-size:22px 22px;
+}
+.scan-line{
+  position:absolute; left:0; right:0; top:0; height:3px;
+  background:linear-gradient(90deg, transparent, var(--accent), transparent);
+  box-shadow:0 0 14px var(--accent);
+  animation:scanSweep 1.7s ease-in-out infinite;
+}
+@keyframes scanSweep{0%{top:0;}50%{top:96%;}100%{top:0;}}
+.scan-status{
+  position:absolute; bottom:10px; left:10px; right:10px;
+  background:rgba(28,22,19,.85); border-radius:8px; padding:8px 12px;
+  font-size:12px; font-weight:600; text-align:center;
+}
+@media (prefers-reduced-motion:reduce){
+  .scan-line{animation:none; top:50%;}
+}
+
+.retake-btn{
+  display:inline-flex; align-items:center; gap:6px; background:none; border:1px solid var(--line);
+  color:var(--text-dim); border-radius:8px; padding:7px 12px; font-size:12px; font-weight:600; cursor:pointer; margin-bottom:14px;
+}
+
+.quickadd-link{
+  display:block; text-align:center; background:none; border:none; color:var(--text-dim);
+  font-size:12.5px; font-weight:600; text-decoration:underline; cursor:pointer; padding:6px 0 18px; width:100%;
+}
+.quickadd-panel{background:var(--surface); border-radius:14px; padding:16px; margin-bottom:16px;}
+.quickadd-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;}
+.quickadd-head h3{font-size:14px; margin:0;}
+.quickadd-close{background:none; border:none; color:var(--text-dim); font-size:13px; cursor:pointer; font-weight:600;}
+.quickadd-search{
+  width:100%; padding:11px 13px; background:var(--bg); border:1px solid var(--line);
+  border-radius:10px; color:var(--text); font-size:13.5px; margin-bottom:10px;
+}
+.quickadd-list{max-height:280px; overflow-y:auto;}
+.qa-item{
+  display:flex; justify-content:space-between; align-items:center;
+  padding:11px 4px; border-bottom:1px solid var(--line); cursor:pointer;
+}
+.qa-item:last-child{border-bottom:none;}
+.qa-item:hover{background:rgba(255,255,255,.03);}
+.qa-name{font-size:13.5px; font-weight:600;}
+.qa-macros{font-size:10.5px; color:var(--text-dim); margin-top:2px;}
+.qa-cal{font-family:'Space Mono',monospace; font-size:13px; color:var(--accent); font-weight:700;}
+.qa-toast{
+  text-align:center; font-size:12px; color:var(--accent); font-weight:700; padding:6px 0 2px; min-height:20px;
+}
+
+/* Nutrition label card */
+.label-card{
+  background:var(--label-cream); color:var(--label-text); border-radius:6px;
+  padding:16px 18px 14px; margin-bottom:14px;
+}
+.label-title{
+  font-family:'Archivo Black',sans-serif; font-size:18px; text-transform:uppercase;
+  border-bottom:9px solid var(--label-text); padding-bottom:6px; margin-bottom:4px;
+}
+.label-confidence{font-size:11px; color:#6b5d4f; margin-bottom:6px; font-weight:600;}
+.label-cal-row{
+  display:flex; justify-content:space-between; align-items:baseline;
+  border-bottom:5px solid var(--label-text); padding:8px 0;
+}
+.label-cal-row .cal-label{font-weight:700; font-size:14px;}
+.label-cal-row .cal-num{font-family:'Archivo Black',sans-serif; font-size:34px;}
+.label-row{
+  display:flex; justify-content:space-between; padding:7px 0;
+  border-bottom:1px solid rgba(33,26,20,.18); font-size:13.5px;
+}
+.label-row .val{font-weight:800; font-family:'Space Mono',monospace;}
+.label-items{font-size:12px; color:#5c4f42; margin-top:8px; line-height:1.5;}
+.label-note{font-size:11px; color:#6b5d4f; font-style:italic; margin-top:8px; line-height:1.4;}
+
+.primary-btn{
+  width:100%; padding:14px; border:none; border-radius:12px;
+  background:var(--accent); color:#1C1613; font-size:14.5px; font-weight:800;
+  cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;
+}
+.primary-btn:hover:not(:disabled){background:var(--accent-dim);}
+.primary-btn:disabled{opacity:.5; cursor:not-allowed;}
+.spinner{width:15px; height:15px; border:2px solid rgba(28,22,19,.3); border-top-color:#1C1613; border-radius:50%; animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+.locked-card{
+  background:var(--surface); border:1px solid var(--accent); border-radius:14px;
+  padding:24px 20px; text-align:center;
+}
+.locked-card .lock-title{font-weight:800; font-size:15px; margin-bottom:6px;}
+.locked-card .lock-sub{font-size:12.5px; color:var(--text-dim); margin-bottom:16px; line-height:1.5;}
+
+/* ---------- DASHBOARD VIEW ---------- */
+.goal-card{
+  background:linear-gradient(160deg, var(--surface-2), var(--surface));
+  border-radius:16px; padding:20px; margin-bottom:16px; border:1px solid var(--line);
+}
+.goal-label{font-size:11.5px; color:var(--text-dim); text-transform:uppercase; letter-spacing:.08em; font-weight:700;}
+.goal-num{font-family:'Archivo Black',sans-serif; font-size:38px; margin:6px 0 14px;}
+.goal-num span{font-size:16px; font-weight:400; color:var(--text-dim); font-family:'Manrope';}
+.stat-row{display:flex; gap:10px;}
+.stat-box{flex:1; background:rgba(0,0,0,.18); border-radius:10px; padding:10px 12px;}
+.stat-box .s-label{font-size:11px; color:var(--text-dim); font-weight:600;}
+.stat-box .s-num{font-family:'Space Mono',monospace; font-size:19px; font-weight:700; margin-top:2px;}
+
+.macro-section{margin-bottom:18px;}
+.macro-row{margin-bottom:12px;}
+.macro-head{display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:5px;}
+.macro-head .m-name{font-weight:700;}
+.macro-head .m-val{font-family:'Space Mono',monospace; color:var(--text-dim);}
+.macro-track{height:8px; background:rgba(255,255,255,.08); border-radius:6px; overflow:hidden;}
+.macro-fill{height:100%; border-radius:6px; transition:width .4s ease;}
+
+.section-title{font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:var(--text-dim); margin:20px 0 10px;}
+
+.log-item{
+  display:flex; justify-content:space-between; align-items:center;
+  background:var(--surface); border-radius:10px; padding:11px 14px; margin-bottom:8px;
+}
+.log-item .li-name{font-size:13px; font-weight:600;}
+.log-item .li-time{font-size:11px; color:var(--text-dim); margin-top:2px;}
+.log-item .li-cal{font-family:'Space Mono',monospace; font-weight:700; font-size:14px;}
+.log-empty{font-size:13px; color:var(--text-dim); text-align:center; padding:24px 0;}
+
+.week-chart{display:flex; align-items:flex-end; gap:8px; height:90px; margin-top:6px;}
+.week-bar-wrap{flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; height:100%; justify-content:flex-end;}
+.week-bar{width:100%; border-radius:4px 4px 2px 2px; background:var(--line);}
+.week-bar.today{background:var(--accent);}
+.week-day-label{font-size:10px; color:var(--text-dim); font-weight:600;}
+.week-note{font-size:11px; color:var(--text-dim); margin-top:8px; line-height:1.4;}
+
+/* ---------- PROFILE VIEW ---------- */
+.field-label{font-size:12px; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:.06em; margin:0 0 8px;}
+.input-row{display:flex; gap:10px; margin-bottom:16px;}
+.text-input, select.text-input{
+  width:100%; padding:12px 13px; background:var(--surface); border:1px solid var(--line);
+  border-radius:10px; color:var(--text); font-size:14px;
+}
+.toggle-row{display:flex; gap:8px; margin-bottom:16px;}
+.toggle-pill{
+  flex:1; text-align:center; padding:10px 4px; border-radius:9px; cursor:pointer;
+  border:1px solid var(--line); background:var(--surface); font-size:12.5px; font-weight:700; color:var(--text-dim);
+}
+.toggle-pill.active{background:var(--accent); border-color:var(--accent); color:#1C1613;}
+
+.result-targets{
+  background:var(--surface-2); border-radius:12px; padding:16px; margin-top:16px; display:none;
+}
+.result-targets.show{display:block;}
+.rt-row{display:flex; justify-content:space-between; padding:6px 0; font-size:13px; border-bottom:1px solid var(--line);}
+.rt-row:last-child{border-bottom:none;}
+.rt-row .val{font-family:'Space Mono',monospace; font-weight:700;}
+
+/* ---------- BOTTOM NAV ---------- */
+.bottom-nav{
+  position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:480px;
+  display:flex; background:var(--surface); border-top:1px solid var(--line);
+  padding:10px 0 calc(10px + env(safe-area-inset-bottom)); z-index:10;
+}
+.nav-item{
+  flex:1; display:flex; flex-direction:column; align-items:center; gap:4px;
+  background:none; border:none; color:var(--text-dim); font-size:11px; font-weight:600; cursor:pointer;
+}
+.nav-item.active{color:var(--accent);}
+.nav-item svg{opacity:.85;}
+.nav-item.active svg{opacity:1;}
+
+.hidden{display:none;}
+</style>
+</head>
+<body>
+
+<div class="phone-shell">
+
+  <!-- SCAN VIEW -->
+  <div class="view active" id="viewScan">
+    <div class="app-header">
+      <div class="eyebrow">AI Food Scanner</div>
+      <h1 class="brand">Thali</h1>
+    </div>
+    <div style="padding:0 20px;">
+      <div class="scan-counter">
+        <span><strong id="scansLeftNum">5</strong> free scans left today</span>
+        <div class="dots" id="scanDots"></div>
+      </div>
+
+      <div id="uploadZone" class="upload-zone">
+        <svg class="icon" width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#A89A8C" stroke-width="1.5"><path d="M4 8a2 2 0 0 1 2-2h1.5l1-1.5h7l1 1.5H18a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8Z"/><circle cx="12" cy="13" r="3.5"/></svg>
+        <div class="u-main">Tap to photograph your plate</div>
+        <div class="u-sub">Or upload a photo from your gallery</div>
+      </div>
+      <input type="file" id="fileInput" accept="image/*" capture="environment" class="hidden">
+
+      <button class="quickadd-link" id="quickAddToggle">Or quick-add from common foods (no scan, no limit)</button>
+      <div class="quickadd-panel hidden" id="quickAddPanel">
+        <div class="quickadd-head">
+          <h3>Quick Add</h3>
+          <button class="quickadd-close" id="quickAddClose">Close</button>
+        </div>
+        <input class="quickadd-search" id="quickAddSearch" placeholder="Search roti, dal, paneer...">
+        <div class="qa-toast" id="qaToast"></div>
+        <div class="quickadd-list" id="quickAddList"></div>
+      </div>
+
+      <div id="photoArea"></div>
+      <div id="resultArea"></div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD VIEW -->
+  <div class="view" id="viewDash">
+    <div class="app-header">
+      <div class="eyebrow">Today</div>
+      <h1 class="brand">Dashboard</h1>
+    </div>
+    <div style="padding:0 20px;">
+      <div class="goal-card">
+        <div class="goal-label">Today's goal</div>
+        <div class="goal-num" id="goalNum">2200<span> kcal</span></div>
+        <div class="stat-row">
+          <div class="stat-box"><div class="s-label">Consumed</div><div class="s-num" id="consumedNum">0</div></div>
+          <div class="stat-box"><div class="s-label">Remaining</div><div class="s-num" id="remainingNum">2200</div></div>
+        </div>
+      </div>
+
+      <div class="macro-section">
+        <div class="macro-row">
+          <div class="macro-head"><span class="m-name" style="color:var(--protein)">Protein</span><span class="m-val" id="proteinVal">0 / 140g</span></div>
+          <div class="macro-track"><div class="macro-fill" id="proteinFill" style="width:0%; background:var(--protein);"></div></div>
+        </div>
+        <div class="macro-row">
+          <div class="macro-head"><span class="m-name" style="color:var(--carbs)">Carbs</span><span class="m-val" id="carbsVal">0 / 250g</span></div>
+          <div class="macro-track"><div class="macro-fill" id="carbsFill" style="width:0%; background:var(--carbs);"></div></div>
+        </div>
+        <div class="macro-row">
+          <div class="macro-head"><span class="m-name" style="color:var(--fat)">Fat</span><span class="m-val" id="fatVal">0 / 70g</span></div>
+          <div class="macro-track"><div class="macro-fill" id="fatFill" style="width:0%; background:var(--fat);"></div></div>
+        </div>
+      </div>
+
+      <div class="section-title">Today's log</div>
+      <div id="logList"><div class="log-empty">Nothing logged yet — scan your first meal</div></div>
+
+      <div class="section-title">Last 7 days</div>
+      <div class="week-chart" id="weekChart"></div>
+      <div class="week-note">History fills in day by day as you use Thali. (In this preview, only "today" reflects real data.)</div>
+    </div>
+  </div>
+
+  <!-- PROFILE VIEW -->
+  <div class="view" id="viewProfile">
+    <div class="app-header">
+      <div class="eyebrow">Gym Mode</div>
+      <h1 class="brand">Your Profile</h1>
+    </div>
+    <div style="padding:0 20px;">
+      <div class="field-label">Sex</div>
+      <div class="toggle-row" id="sexToggle">
+        <div class="toggle-pill active" data-val="male">Male</div>
+        <div class="toggle-pill" data-val="female">Female</div>
+      </div>
+
+      <div class="input-row">
+        <div style="flex:1;">
+          <div class="field-label">Weight (kg)</div>
+          <input class="text-input" type="number" id="weightInput" placeholder="65">
+        </div>
+        <div style="flex:1;">
+          <div class="field-label">Height (cm)</div>
+          <input class="text-input" type="number" id="heightInput" placeholder="170">
+        </div>
+      </div>
+      <div class="input-row">
+        <div style="flex:1;">
+          <div class="field-label">Age</div>
+          <input class="text-input" type="number" id="ageInput" placeholder="20">
+        </div>
+        <div style="flex:1;">
+          <div class="field-label">Activity level</div>
+          <select class="text-input" id="activityInput">
+            <option value="1.2">Sedentary</option>
+            <option value="1.375">Light (1-3x/wk)</option>
+            <option value="1.55" selected>Moderate (3-5x/wk)</option>
+            <option value="1.725">Active (6-7x/wk)</option>
+            <option value="1.9">Very active</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field-label">Goal</div>
+      <div class="toggle-row" id="goalToggle">
+        <div class="toggle-pill" data-val="loss">Fat loss</div>
+        <div class="toggle-pill active" data-val="maintain">Maintenance</div>
+        <div class="toggle-pill" data-val="gain">Muscle gain</div>
+      </div>
+
+      <button class="primary-btn" id="calcBtn">Calculate my targets</button>
+
+      <div class="result-targets" id="resultTargets">
+        <div class="rt-row"><span>Daily calories</span><span class="val" id="rtCal">—</span></div>
+        <div class="rt-row"><span>Protein</span><span class="val" id="rtProtein">—</span></div>
+        <div class="rt-row"><span>Carbs</span><span class="val" id="rtCarbs">—</span></div>
+        <div class="rt-row"><span>Fat</span><span class="val" id="rtFat">—</span></div>
+        <button class="primary-btn" id="saveTargetsBtn" style="margin-top:14px;">Save as today's goal</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM NAV -->
+  <div class="bottom-nav">
+    <button class="nav-item active" data-view="viewScan">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 8a2 2 0 0 1 2-2h1.5l1-1.5h7l1 1.5H18a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8Z"/><circle cx="12" cy="13" r="3.5"/></svg>
+      Scan
+    </button>
+    <button class="nav-item" data-view="viewDash">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 19V10M12 19V5M20 19v-7"/></svg>
+      Dashboard
+    </button>
+    <button class="nav-item" data-view="viewProfile">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c0-3.5 3-6 7-6s7 2.5 7 6"/></svg>
+      Profile
+    </button>
+  </div>
+</div>
+
+<script>
+// ---------- STATE ----------
+let scansUsedToday = 0;
+const FREE_SCAN_LIMIT = 5;
+let todayLog = [];
+let profile = { targetCalories: 2200, targetProtein: 140, targetCarbs: 250, targetFat: 70 };
+let pendingImage = null; // {base64, mimeType}
+
+// ---------- BUILT-IN FOOD DATABASE (no API needed, free, unlimited) ----------
+const FOOD_DB = [
+  {name:"Roti / Chapati (1)", calories:120, protein:3, carbs:18, fat:3.5},
+  {name:"Rice, cooked (1 cup)", calories:200, protein:4, carbs:45, fat:0.5},
+  {name:"Dal (1 cup)", calories:150, protein:9, carbs:20, fat:4},
+  {name:"Paneer (100g)", calories:265, protein:18, carbs:6, fat:20},
+  {name:"Chicken curry (1 cup)", calories:280, protein:25, carbs:8, fat:17},
+  {name:"Idli (1 piece)", calories:40, protein:1.5, carbs:8, fat:0.2},
+  {name:"Dosa, plain (1)", calories:133, protein:3, carbs:22, fat:3.5},
+  {name:"Sambar (1 cup)", calories:120, protein:6, carbs:18, fat:3},
+  {name:"Samosa (1)", calories:150, protein:3, carbs:17, fat:8},
+  {name:"Chai with milk+sugar (1 cup)", calories:80, protein:2, carbs:12, fat:2.5},
+  {name:"Curd / Yogurt (1 cup)", calories:150, protein:8, carbs:11, fat:8},
+  {name:"Boiled egg (1)", calories:78, protein:6, carbs:0.6, fat:5},
+  {name:"Banana (1 medium)", calories:105, protein:1.3, carbs:27, fat:0.3},
+  {name:"Poha (1 cup)", calories:180, protein:4, carbs:30, fat:5},
+  {name:"Upma (1 cup)", calories:200, protein:5, carbs:30, fat:7},
+  {name:"Paratha, plain (1)", calories:260, protein:5, carbs:36, fat:11},
+  {name:"Biryani (1 cup)", calories:350, protein:12, carbs:45, fat:13},
+  {name:"Rajma (1 cup)", calories:220, protein:13, carbs:35, fat:3},
+  {name:"Chole (1 cup)", calories:270, protein:12, carbs:40, fat:7},
+  {name:"Aloo sabzi (1 cup)", calories:160, protein:3, carbs:25, fat:6},
+  {name:"Palak paneer (1 cup)", calories:230, protein:12, carbs:10, fat:16},
+  {name:"Butter chicken (1 cup)", calories:350, protein:22, carbs:10, fat:24},
+  {name:"Naan (1)", calories:260, protein:8, carbs:45, fat:5},
+  {name:"Vada (1)", calories:100, protein:3, carbs:12, fat:5},
+  {name:"Uttapam (1)", calories:150, protein:4, carbs:25, fat:4},
+  {name:"Instant noodles (1 pack)", calories:350, protein:7, carbs:50, fat:14},
+  {name:"Boiled potato (1 medium)", calories:110, protein:2.5, carbs:26, fat:0.1},
+  {name:"Apple (1 medium)", calories:95, protein:0.5, carbs:25, fat:0.3},
+  {name:"Almonds (10 pieces)", calories:70, protein:2.5, carbs:2.5, fat:6},
+  {name:"Protein shake (1 scoop)", calories:120, protein:24, carbs:3, fat:1.5},
+  {name:"Milk (1 glass, 250ml)", calories:150, protein:8, carbs:12, fat:8},
+  {name:"Omelette (2 eggs)", calories:180, protein:13, carbs:1.5, fat:14},
+  {name:"Pulao (1 cup)", calories:250, protein:6, carbs:40, fat:7},
+  {name:"Khichdi (1 cup)", calories:200, protein:7, carbs:35, fat:4},
+  {name:"Pakora / Bhajiya (4 pieces)", calories:180, protein:4, carbs:18, fat:11},
+  {name:"Gulab jamun (1 piece)", calories:150, protein:2, carbs:20, fat:7}
+];
+
+// ---------- QUICK ADD UI ----------
+const quickAddToggle = document.getElementById('quickAddToggle');
+const quickAddPanel = document.getElementById('quickAddPanel');
+const quickAddClose = document.getElementById('quickAddClose');
+const quickAddSearch = document.getElementById('quickAddSearch');
+const quickAddList = document.getElementById('quickAddList');
+const qaToast = document.getElementById('qaToast');
+
+quickAddToggle.addEventListener('click', () => {
+  quickAddPanel.classList.toggle('hidden');
+  if(!quickAddPanel.classList.contains('hidden')){
+    renderFoodList(FOOD_DB);
+    quickAddSearch.focus();
+  }
+});
+quickAddClose.addEventListener('click', () => quickAddPanel.classList.add('hidden'));
+
+quickAddSearch.addEventListener('input', () => {
+  const q = quickAddSearch.value.trim().toLowerCase();
+  const filtered = q ? FOOD_DB.filter(f => f.name.toLowerCase().includes(q)) : FOOD_DB;
+  renderFoodList(filtered);
+});
+
+function renderFoodList(list){
+  if(list.length === 0){
+    quickAddList.innerHTML = '<div class="log-empty">No matches — try the photo scan instead.</div>';
+    return;
+  }
+  quickAddList.innerHTML = list.map((f, i) => `
+    <div class="qa-item" data-idx="${FOOD_DB.indexOf(f)}">
+      <div><div class="qa-name">${f.name}</div><div class="qa-macros">P ${f.protein}g · C ${f.carbs}g · F ${f.fat}g</div></div>
+      <div class="qa-cal">${f.calories}</div>
+    </div>`).join('');
+  quickAddList.querySelectorAll('.qa-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const food = FOOD_DB[parseInt(el.dataset.idx)];
+      todayLog.push({
+        name: food.name, calories: food.calories, protein: food.protein, carbs: food.carbs, fat: food.fat,
+        time: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
+      });
+      updateDashboard();
+      qaToast.textContent = `Added ${food.name} ✓`;
+      setTimeout(() => { qaToast.textContent = ''; }, 1500);
+    });
+  });
+}
+// ---------- /QUICK ADD ----------
+
+// ---------- NAV ----------
+document.querySelectorAll('.nav-item').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.view).classList.add('active');
+    if(btn.dataset.view === 'viewDash') updateDashboard();
+  });
+});
+
+// ---------- SCAN COUNTER UI ----------
+function renderScanCounter(){
+  document.getElementById('scansLeftNum').textContent = Math.max(0, FREE_SCAN_LIMIT - scansUsedToday);
+  const dotsWrap = document.getElementById('scanDots');
+  dotsWrap.innerHTML = '';
+  for(let i=0;i<FREE_SCAN_LIMIT;i++){
+    const d = document.createElement('div');
+    d.className = 'dot' + (i < scansUsedToday ? ' used' : '');
+    dotsWrap.appendChild(d);
+  }
+}
+renderScanCounter();
+
+// ---------- UPLOAD ----------
+const uploadZone = document.getElementById('uploadZone');
+const fileInput = document.getElementById('fileInput');
+const photoArea = document.getElementById('photoArea');
+const resultArea = document.getElementById('resultArea');
+
+uploadZone.addEventListener('click', () => {
+  if(scansUsedToday >= FREE_SCAN_LIMIT){ showLocked(); return; }
+  fileInput.click();
+});
+
+fileInput.addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  resultArea.innerHTML = '';
+  const reader = new FileReader();
+  reader.onload = async () => {
+    const dataUrl = reader.result;
+    const base64 = dataUrl.split(',')[1];
+    const mimeType = file.type || 'image/jpeg';
+    pendingImage = { base64, mimeType };
+    renderPhotoScanning(dataUrl);
+    try{
+      const result = await analyzeFood(base64, mimeType);
+      renderResult(result);
+    } catch(err){
+      console.error(err);
+      photoArea.innerHTML = `<div class="photo-card"><img src="${dataUrl}"></div>`;
+      resultArea.innerHTML = `<div class="locked-card"><div class="lock-title">Couldn't analyze that photo</div><div class="lock-sub">Try again with a clearer, well-lit shot of your plate.</div></div>`;
+    }
+  };
+  reader.readAsDataURL(file);
+});
+
+function renderPhotoScanning(dataUrl){
+  uploadZone.classList.add('hidden');
+  photoArea.innerHTML = `
+    <div class="photo-card">
+      <img src="${dataUrl}">
+      <div class="scan-overlay">
+        <div class="scan-grid"></div>
+        <div class="scan-line"></div>
+      </div>
+      <div class="scan-status">Estimating volume & nutrients...</div>
+    </div>
+    <button class="retake-btn" id="retakeBtn">↺ Retake photo</button>
+  `;
+  document.getElementById('retakeBtn').addEventListener('click', resetScan);
+}
+
+function resetScan(){
+  uploadZone.classList.remove('hidden');
+  photoArea.innerHTML = '';
+  resultArea.innerHTML = '';
+  fileInput.value = '';
+  pendingImage = null;
+}
+
+function showLocked(){
+  resultArea.innerHTML = `
+    <div class="locked-card">
+      <div class="lock-title">You've used all 5 free scans today</div>
+      <div class="lock-sub">Upgrade to Thali Pro for unlimited scans, every day.</div>
+      <button class="primary-btn">Upgrade — coming soon</button>
+    </div>`;
+}
+
+function stripFence(text){
+  return text.replace(/```json/g, '').replace(/```/g, '').trim();
+}
+
+async function analyzeFood(base64, mimeType){
+  const systemPrompt = `You are a nutrition estimation assistant. Look at the food photo and estimate calories and macros using visual portion cues (plate size, common serving sizes, reference objects in frame). Give your best reasonable estimate even if uncertain — note your confidence level rather than refusing. Return ONLY valid JSON, no markdown fences, no preamble, in this exact format: {"items":[{"name":"...","calories":number,"protein_g":number,"carbs_g":number,"fat_g":number}],"total":{"calories":number,"protein_g":number,"carbs_g":number,"fat_g":number},"confidence":"low or medium or high","note":"one short caveat sentence"}`;
+
+  const response = await fetch("/api/analyze", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ system: systemPrompt, image: base64, mimeType: mimeType })
+  });
+  if(!response.ok) throw new Error('API request failed');
+  const data = await response.json();
+  const text = data.content.map(b => b.text || '').join('');
+  return JSON.parse(stripFence(text));
+}
+
+function renderResult(result){
+  const t = result.total;
+  const itemsText = result.items.map(i => i.name).join(', ');
+  resultArea.innerHTML = `
+    <div class="label-card">
+      <div class="label-title">Nutrition Estimate</div>
+      <div class="label-confidence">Confidence: ${result.confidence || 'medium'}</div>
+      <div class="label-cal-row"><span class="cal-label">Calories</span><span class="cal-num">${t.calories}</span></div>
+      <div class="label-row"><span>Protein</span><span class="val">${t.protein_g} g</span></div>
+      <div class="label-row"><span>Carbs</span><span class="val">${t.carbs_g} g</span></div>
+      <div class="label-row"><span>Fat</span><span class="val">${t.fat_g} g</span></div>
+      <div class="label-items">${itemsText}</div>
+      ${result.note ? `<div class="label-note">${result.note}</div>` : ''}
+    </div>
+    <button class="primary-btn" id="addLogBtn">Add to today's log</button>
+  `;
+  document.getElementById('addLogBtn').addEventListener('click', () => addToLog(result));
+}
+
+function addToLog(result){
+  const t = result.total;
+  todayLog.push({
+    name: result.items.map(i=>i.name).join(', ').slice(0,40),
+    calories: t.calories, protein: t.protein_g, carbs: t.carbs_g, fat: t.fat_g,
+    time: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
+  });
+  scansUsedToday++;
+  renderScanCounter();
+  resetScan();
+  updateDashboard();
+  document.querySelector('.nav-item[data-view="viewDash"]').click();
+}
+
+// ---------- DASHBOARD ----------
+function updateDashboard(){
+  const consumed = todayLog.reduce((s,i)=>s+i.calories,0);
+  const protein = todayLog.reduce((s,i)=>s+i.protein,0);
+  const carbs = todayLog.reduce((s,i)=>s+i.carbs,0);
+  const fat = todayLog.reduce((s,i)=>s+i.fat,0);
+
+  document.getElementById('goalNum').innerHTML = profile.targetCalories + '<span> kcal</span>';
+  document.getElementById('consumedNum').textContent = consumed;
+  document.getElementById('remainingNum').textContent = Math.max(0, profile.targetCalories - consumed);
+
+  setMacro('protein', protein, profile.targetProtein);
+  setMacro('carbs', carbs, profile.targetCarbs);
+  setMacro('fat', fat, profile.targetFat);
+
+  const logList = document.getElementById('logList');
+  if(todayLog.length === 0){
+    logList.innerHTML = '<div class="log-empty">Nothing logged yet — scan your first meal</div>';
+  } else {
+    logList.innerHTML = todayLog.map(item => `
+      <div class="log-item">
+        <div><div class="li-name">${item.name}</div><div class="li-time">${item.time}</div></div>
+        <div class="li-cal">${item.calories} kcal</div>
+      </div>`).join('');
+  }
+
+  renderWeekChart(consumed);
+}
+
+function setMacro(key, val, target){
+  const pct = Math.min(100, Math.round((val/target)*100)) || 0;
+  document.getElementById(key+'Val').textContent = val + ' / ' + target + 'g';
+  document.getElementById(key+'Fill').style.width = pct + '%';
+}
+
+function renderWeekChart(todayConsumed){
+  const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const todayIdx = (new Date().getDay() + 6) % 7;
+  const wrap = document.getElementById('weekChart');
+  wrap.innerHTML = '';
+  days.forEach((d, i) => {
+    const isToday = i === todayIdx;
+    const heightPct = isToday ? Math.min(100, (todayConsumed / profile.targetCalories) * 100) : 6;
+    wrap.innerHTML += `
+      <div class="week-bar-wrap">
+        <div class="week-bar${isToday ? ' today' : ''}" style="height:${Math.max(6,heightPct)}%;"></div>
+        <div class="week-day-label">${d}</div>
+      </div>`;
+  });
+}
+updateDashboard();
+
+// ---------- PROFILE / GYM MODE ----------
+let sexVal = 'male', goalVal = 'maintain';
+
+document.querySelectorAll('#sexToggle .toggle-pill').forEach(p => {
+  p.addEventListener('click', () => {
+    document.querySelectorAll('#sexToggle .toggle-pill').forEach(x=>x.classList.remove('active'));
+    p.classList.add('active'); sexVal = p.dataset.val;
+  });
+});
+document.querySelectorAll('#goalToggle .toggle-pill').forEach(p => {
+  p.addEventListener('click', () => {
+    document.querySelectorAll('#goalToggle .toggle-pill').forEach(x=>x.classList.remove('active'));
+    p.classList.add('active'); goalVal = p.dataset.val;
+  });
+});
+
+document.getElementById('calcBtn').addEventListener('click', () => {
+  const weight = parseFloat(document.getElementById('weightInput').value);
+  const height = parseFloat(document.getElementById('heightInput').value);
+  const age = parseFloat(document.getElementById('ageInput').value);
+  const activity = parseFloat(document.getElementById('activityInput').value);
+
+  if(!weight || !height || !age){
+    alert('Please fill in weight, height, and age.');
+    return;
+  }
+
+  let bmr = sexVal === 'male'
+    ? 10*weight + 6.25*height - 5*age + 5
+    : 10*weight + 6.25*height - 5*age - 161;
+  let tdee = bmr * activity;
+
+  let calorieTarget, proteinPerKg;
+  if(goalVal === 'loss'){ calorieTarget = tdee - 500; proteinPerKg = 2.0; }
+  else if(goalVal === 'gain'){ calorieTarget = tdee + 350; proteinPerKg = 2.0; }
+  else { calorieTarget = tdee; proteinPerKg = 1.6; }
+
+  calorieTarget = Math.round(calorieTarget / 10) * 10;
+  const proteinG = Math.round(weight * proteinPerKg);
+  const fatG = Math.round((calorieTarget * 0.25) / 9);
+  const carbsG = Math.round((calorieTarget - (proteinG*4) - (fatG*9)) / 4);
+
+  document.getElementById('rtCal').textContent = calorieTarget + ' kcal';
+  document.getElementById('rtProtein').textContent = proteinG + ' g';
+  document.getElementById('rtCarbs').textContent = carbsG + ' g';
+  document.getElementById('rtFat').textContent = fatG + ' g';
+  document.getElementById('resultTargets').classList.add('show');
+
+  document.getElementById('saveTargetsBtn').onclick = () => {
+    profile.targetCalories = calorieTarget;
+    profile.targetProtein = proteinG;
+    profile.targetCarbs = carbsG;
+    profile.targetFat = fatG;
+    updateDashboard();
+    document.querySelector('.nav-item[data-view="viewDash"]').click();
+  };
+});
+</script>
+</body>
+</html>
